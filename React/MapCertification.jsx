@@ -5,14 +5,12 @@ import {
   DropdownItem,
   DropdownMenu,
 } from "reactstrap";
+import * as dateFormatter from "../../utils/dateFormater";
 import { SlOptionsVertical } from "react-icons/sl";
 import { FaUserEdit, FaTrashAlt, FaRegFileAlt } from "react-icons/fa";
-import { format } from "date-fns";
-import debug from "sabio-debug";
 import PropTypes from "prop-types";
 
 function MappingCertification(props) {
-  const _logger = debug.extend("CertificationForm");
   const aCertification = props.certification;
 
   const [showDropdown, setShowDropdown] = useState(false);
@@ -30,7 +28,7 @@ function MappingCertification(props) {
   };
 
   const onLocalResults = () => {
-    _logger("onResult", aCertification.id)
+    props.onResult(aCertification);
   }
 
   return (
@@ -95,7 +93,7 @@ function MappingCertification(props) {
 
         <td role="cell">
           <span className="my-2">
-            {format(new Date(aCertification.dueDate), "MMM dd, yyyy")}
+            {dateFormatter.formatDateShort(aCertification.dueDate)}
           </span>
         </td>
 
@@ -146,7 +144,8 @@ MappingCertification.propTypes = {
     dueDate: PropTypes.string.isRequired
   }).isRequired,
   onEdit: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired
+  onDelete: PropTypes.func.isRequired,
+  onResult: PropTypes.func.isRequired
 }
 
 export default MappingCertification;

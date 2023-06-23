@@ -11,6 +11,7 @@ import seasonService from 'services/seasonService';
 import testService from 'services/testService';
 import certificationService from 'services/certificationService';
 import CertificationBasicSchema from 'schemas/certificationFormSchema';
+import officialsService from 'services/officialsService';
 
 import PropTypes from "prop-types"
 import conferencesService from 'services/conferenceService';
@@ -22,6 +23,7 @@ function CertificationForm(props) {
     const { certificationId } = useParams();
     const _logger = debug.extend("CertificationForm");
     const isAdmin = props.currentUser.roles.some(role => role === "Admin");
+    let batchIds = [];
 
     const [formData, setFormData] = useState({
         name: " ",
@@ -33,7 +35,8 @@ function CertificationForm(props) {
         minimumScoreRequired: "",
         isFitnessTestRequired: false,
         isClinicRequired: false,
-        dueDate: ""
+        dueDate: "",
+        isAssigned: false
     });
 
     const [renderingData, setRenderingData] = useState({
@@ -41,6 +44,14 @@ function CertificationForm(props) {
         seasons: "",
         tests: "",
         conferences: "",
+        officials: "",
+        disableAll: false,
+        unnasignedOfficials: 0,
+        officialsComponents: "",
+        isCurrentlyAssigned: false,
+        allOfficialsCheckbox: false,
+        someOfficialsCheckbox: false,
+        batchIds: []
     })
 
 
@@ -63,8 +74,16 @@ function CertificationForm(props) {
         if (certificationId && location.state.type === "CERTIFICATION_EDIT") {
 
             const aCertification = location.state.payload
-            _logger("certification object edit", aCertification)
-            setRenderingData(prevState => ({ ...prevState, conferenceId: aCertification.season.conference.id }))
+
+            officialsService.getByMissingCertification(props.currentUser.conferenceId, certificationId).then(data => { setRenderingData(prevState => ({ ...prevState, unnasignedOfficials: data.items.length })) }).catch(onGetOfficialsError)
+
+            setRenderingData(prevState => (
+                {
+                    ...prevState,
+                    conferenceId: aCertification.season.conference.id,
+                    isCurrentlyAssigned: aCertification.isAssigned,
+                }));
+
             setFormData((prevState) => {
                 const newState = { ...prevState };
 
@@ -80,6 +99,7 @@ function CertificationForm(props) {
                 newState.isFitnessTestRequired = aCertification.isFitnessTestRequired;
                 newState.isClinicRequired = aCertification.isClinicRequired;
                 newState.isTestRequired = aCertification.isTestRequired;
+                newState.isAssigned = aCertification.isAssigned;
 
                 if (aCertification.isTestRequired) {
                     newState.testId = aCertification.test.id;
@@ -122,8 +142,6 @@ function CertificationForm(props) {
     const onGetTestsSuccess = (data) => {
 
         const testsArray = data.items;
-        _logger("tests", data);
-
         const mappedArray = testsArray.map(mappingOptions);
         setRenderingData(prevState => ({ ...prevState, tests: mappedArray }));
     }
@@ -221,10 +239,185 @@ function CertificationForm(props) {
         resetForm()
     }
 
+    const selectAllOfficials = (event) => {
+
+        const isSelected = event.target.checked;
+        _logger("checked", isSelected)
+        setRenderingData(prevState => ({ ...prevState, allOfficialsCheckbox: isSelected, someOfficialsCheckbox: false }));
+    }
+
+    const onAssign = () => {
+
+        if (renderingData.allOfficialsCheckbox) {
+
+            setRenderingData(prevState => ({ ...prevState, isCurrentlyAssigned: true }))
+            certificationService.insertIntoResults(certificationId, renderingData.conferenceId).then(onInsertSuccess).catch(onInsertError)
+
+
+        } else if (renderingData.batchIds.length > 0) {
+
+            const payload = { Users: renderingData.batchIds }
+
+            certificationService.batchInsertToResults(payload, certificationId).then(onInsertSuccess).catch(onInsertError)
+
+            setRenderingData(prevState => {
+
+                const newState = { ...prevState };
+
+                for (let i = 0; i < payload.Users.length; i++) {
+
+                    const currentUserId = payload.Users[i];
+
+                    const indexOfUser = newState.officials.findIndex(cert => cert.user.id === currentUserId)
+
+                    if (indexOfUser >= 0) {
+                        newState.officials.splice(indexOfUser, 1);
+                        newState.officialsComponents = newState.officials.map(mappingOfficials);
+                    }
+                }
+
+                newState.disableAll = true;
+
+                return newState
+            });
+        } else if (renderingData.someOfficialsCheckbox || renderingData.unnasignedOfficials === 0) {
+            Swal.fire({
+                title: `All Officials Assigned`,
+                html: `<h3>CertificationId: ${certificationId} <br> Is already assigned to all officials in current conference</h3>`,
+                icon: 'info',
+                confirmButtonColor: '#3fc3ee',
+                showConfirmButton: true,
+                allowOutsideClick: false
+            })
+        } else if (renderingData.someOfficialsCheckbox && renderingData.officials.length === 0) {
+            Swal.fire({
+                title: `All Officials Assigned`,
+                html: `<h3>CertificationId: ${certificationId} <br> Is already assigned to all officials in current conference</h3>`,
+                icon: 'info',
+                confirmButtonColor: '#3fc3ee',
+                showConfirmButton: true,
+                allowOutsideClick: false
+            })
+        } else {
+
+            Swal.fire({
+                title: `Officials not selected`,
+                html: `<h3>Please select unnasigned officials to assign this certification`,
+                icon: 'warning',
+                confirmButtonColor: '#f8bb86',
+                showConfirmButton: true,
+                allowOutsideClick: false
+            })
+        }
+    }
+
+    const onInsertSuccess = () => {
+
+        Swal.fire({
+            title: 'Certification Assigned Successfully',
+            html: `<h3>Certification is assigned to the selected Officials</h3>`,
+            icon: 'success',
+            confirmButtonColor: '#28a745',
+        })
+    }
+
+    const onInsertError = () => {
+
+        Swal.fire({
+            title: `All Officials Assigned (E)`,
+            html: `<h3>CertificationId: ${certificationId} <br> Is already assigned to all officials in current conference</h3>`,
+            icon: 'info',
+            confirmButtonColor: '#3fc3ee',
+            showConfirmButton: true,
+            allowOutsideClick: false
+        })
+    }
+
+    const selectOfficials = (event) => {
+
+        const isSelected = event.target.checked;
+
+        setRenderingData(prevState => ({ ...prevState, someOfficialsCheckbox: !renderingData.someOfficialsCheckbox, allOfficialsCheckbox: false }))
+
+        if (isSelected) {
+            officialsService.getByMissingCertification(props.currentUser.conferenceId, certificationId).then(onGetOfficialsSuccess).catch(onGetOfficialsError)
+        } else {
+            renderingData.batchIds = [];
+        }
+    }
+
+    const onGetOfficialsSuccess = (data) => {
+
+        const officialsArray = data.items;
+        const mappedArray = officialsArray.map(mappingOfficials);
+        setRenderingData(prevState => ({ ...prevState, officials: officialsArray, officialsComponents: mappedArray }));
+    }
+
+    const mappingOfficials = (anOfficial) => {
+        return (
+            <Row className='mt-2' key={"ListO-" + anOfficial.id}>
+                <div className='col-10'  >
+                    <img
+                        src={anOfficial.user.avatarUrl}
+                        alt="pic"
+                        className="rounded-circle border border-white me-3"
+                        style={{ height: "2.2rem", width: "2.2rem" }}
+
+                    />
+                    <span className="fw-bold text-secondary">
+                        {anOfficial.user.firstName} {anOfficial.user.lastName}
+                    </span>
+                </div>
+                <div className='col-2'>
+                    <input
+                        id={anOfficial.user.id}
+                        name="official"
+                        className="form-check-input mt-2"
+                        type="checkbox"
+                        onChange={selectingOfficials}
+                    >
+                    </input>
+                </div>
+            </Row>
+        )
+    }
+
+    const selectingOfficials = (event) => {
+
+        const officerId = event.target.id
+        const isChecked = event.target.checked;
+        _logger("selecting officials", isChecked)
+        if (isChecked) {
+
+            batchIds.push(Number(officerId))
+            setRenderingData(prevState => ({ ...prevState, batchIds: batchIds }))
+
+        } else {
+
+            const index = batchIds.indexOf(officerId);
+            batchIds.splice(index, 1)
+            setRenderingData(prevState => ({ ...prevState, batchIds: batchIds }))
+        }
+
+    }
+
+    const onGetOfficialsError = () => {
+
+        Swal.fire({
+            title: `All Officials Assigned`,
+            html: `<h3>CertificationId: ${certificationId} <br> Is already assigned to all officials in current conference</h3>`,
+            icon: 'info',
+            confirmButtonColor: '#3fc3ee',
+            showConfirmButton: true,
+            allowOutsideClick: false
+        })
+    }
+
 
     return (
         <React.Fragment>
-            <TitleHeader title="New Certification" buttonText='All Certifications' buttonLink='/certifications' />
+            {certificationId && <TitleHeader title="Edit Certification" buttonText='All Certifications' buttonLink='/certifications' />}
+            {!certificationId && <TitleHeader title="New Certification" buttonText='All Certifications' buttonLink='/certifications' />}
             <Row>
                 <Col className='col-sm-8'>
                     <Card>
@@ -326,7 +519,7 @@ function CertificationForm(props) {
 
                                         <Row className='my-4'>
                                             <div className='col-8 my-auto'>
-                                                <label className="form-label " htmlFor="isPhysicalRequired"><h4>Does the certifications Require Physical Something?</h4></label>
+                                                <label className="form-label " htmlFor="isPhysicalRequired"><h4>Does the certification require Physical Test?</h4></label>
                                             </div>
                                             <div className='col-2 text-end my-auto'>
                                                 <Field
@@ -344,7 +537,7 @@ function CertificationForm(props) {
 
                                         <Row className='my-4'>
                                             <div className='col-8'>
-                                                <label className="form-label my-auto" htmlFor="isBackgroundCheckRequired"><h4>Does the certifications Require Background Check?</h4></label>
+                                                <label className="form-label my-auto" htmlFor="isBackgroundCheckRequired"><h4>Does the certification require Background Check?</h4></label>
                                             </div>
                                             <div className='col-2 text-end my-auto'>
                                                 <Field
@@ -362,7 +555,7 @@ function CertificationForm(props) {
 
                                         <Row className='my-4'>
                                             <div className='col-8'>
-                                                <label className="form-label my-auto" htmlFor="isFitnessTestRequired"><h4>Does the certifications Require Fitness Test?</h4></label>
+                                                <label className="form-label my-auto" htmlFor="isFitnessTestRequired"><h4>Does the certification require Fitness Test?</h4></label>
                                             </div>
                                             <div className='col-2 text-end my-auto'>
                                                 <Field
@@ -380,7 +573,7 @@ function CertificationForm(props) {
 
                                         <Row className='my-4'>
                                             <div className='col-8 mt-2'>
-                                                <label className="form-label" htmlFor="isClinicRequired"><h4>Does the certifications Require Clinic?</h4></label>
+                                                <label className="form-label" htmlFor="isClinicRequired"><h4>Does the certification require Clinic Test?</h4></label>
                                             </div>
                                             <div className='col-2 text-end my-auto'>
                                                 <Field
@@ -398,7 +591,7 @@ function CertificationForm(props) {
 
                                         <Row className='my-4'>
                                             <div className='col-8 mt-2'>
-                                                <label className="form-label" htmlFor="isTestRequired"><h4>Does the certifications Require Test?</h4></label>
+                                                <label className="form-label" htmlFor="isTestRequired"><h4>Does the certification require Written Test?</h4></label>
                                             </div>
                                             <div className='col-2 text-end my-auto'>
                                                 <Field
@@ -477,34 +670,67 @@ function CertificationForm(props) {
                         </CardBody>
                     </Card>
                 </Col>
+
                 <Col className='col-sm-4'>
-                    <Card>
-                        <CardBody>
-                            <Row>
-                                <h4 className='text-center'>Assign Certifications to Users</h4>
-                            </Row>
-                            <Row className='my-4'>
-                                <div className='col-10 mt-2'>
-                                    <label className="form-label" htmlFor="selectAllOficials"><h4>Select all Officials in Conference</h4></label>
-                                </div>
-                                <div className='col-2 my-auto'>
-                                    <input
-                                        id="selectAllOficials"
-                                        name="selectAllOficials"
-                                        className="form-check-input p-3 mb-2"
-                                        type="checkbox"
-                                    >
-                                    </input>
-                                </div>
-                            </Row>
-                            <Row className='col-6 mx-auto mt-6 my-2'>
-                                <button type="submit" className="btn btn-primary">Assign</button>
-                            </Row>
-                        </CardBody>
-                    </Card>
+                    {certificationId &&
+                        <>
+                            <Card>
+                                <CardBody>
+                                    <Row>
+                                        <h4 className='text-center'>Assign Certification to Users</h4>
+                                    </Row>
+                                    <Row className='my-4'>
+                                        <div className='col-10 mt-2'>
+                                            <label className="form-label" htmlFor="selectAllOficials"><h4>Select all Officials in Conference</h4></label>
+                                        </div>
+                                        <div className='col-2 my-auto'>
+                                            <input
+                                                id="selectAllOficials"
+                                                name="selectAllOficials"
+                                                className="form-check-input p-3 mb-2"
+                                                type="checkbox"
+                                                checked={(renderingData.unnasignedOfficials === 0 && renderingData.isCurrentlyAssigned) || renderingData.allOfficialsCheckbox}
+                                                disabled={(renderingData.unnasignedOfficials >= 0 && renderingData.isCurrentlyAssigned) || renderingData.disableAll}
+                                                onChange={selectAllOfficials}
+                                            >
+                                            </input>
+                                        </div>
+                                    </Row>
+                                    <Row className='mt-4'>
+                                        <div className='col-10 mt-2'>
+                                            <label className="form-label" htmlFor="selectOficials"><h4>Select specific Officials in Conference</h4></label>
+                                        </div>
+                                        <div className='col-2 my-auto'>
+                                            <input
+                                                id="selectOficials"
+                                                name="selectOficials"
+                                                className="form-check-input p-3 mb-2"
+                                                type="checkbox"
+                                                checked={renderingData.someOfficialsCheckbox}
+                                                disabled={renderingData.unnasignedOfficials === 0 && renderingData.isCurrentlyAssigned}
+                                                onChange={selectOfficials}
+                                            >
+                                            </input>
+                                        </div>
+                                    </Row>
+                                    <Row>
+                                        {renderingData.someOfficialsCheckbox && renderingData.officialsComponents}
+                                    </Row>
+                                    <Row className='col-6 mx-auto mt-2'>
+                                        <button
+                                            type="submit"
+                                            className="btn btn-primary"
+                                            onClick={onAssign}>
+                                            Assign
+                                        </button>
+                                    </Row>
+                                </CardBody>
+                            </Card>
+                        </>
+                    }
                 </Col>
             </Row>
-        </React.Fragment>
+        </React.Fragment >
     )
 }
 
