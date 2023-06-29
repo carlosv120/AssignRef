@@ -18,6 +18,5 @@ namespace Sabio.Services.Interfaces
         Paged<Test> Search(int pageIndex, int pageSize, string query);
         TestV1 MapTestV1(IDataReader reader, ref int startingIndex);
         List<Test> GetByConferenceId(int conferenceId);
-
     }
 }
