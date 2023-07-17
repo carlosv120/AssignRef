@@ -1,0 +1,135 @@
+.admin-dasboard-card-row {
+  width: calc(25% - 1rem);
+  margin-top: 1px;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  text-align: center;
+  padding-top: 25px;
+}
+
+.dashboard-font{
+  font-size: 25px;
+  font-weight: bold;
+  color: black;
+}
+
+.p-bold-size {
+  font-size: 15px;
+  color: black;
+  line-height: 1.5;
+  font-weight: bold;
+}
+
+#large-card {
+  width: 64%;
+  float: left;
+  padding: 20px;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+}
+
+#small-card {
+  width: 35%;
+  float: right;
+  padding: 20px;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+ 
+}
+
+#large-card-graph {
+  width: 64%;
+  float: left;
+  padding: 20px;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+  margin-top: 30px;
+  height: 455px;
+  margin-bottom: 30px;
+  margin-left: -.6%;
+}
+
+.graph-center{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#small-card-pie {
+  width: 35%;
+  float: right;
+  padding: 20px;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  height: 455px;
+  margin-top: 30px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.dashboard-botton-cards {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 25px;
+}
+
+.card-title-font {
+  padding: 0.5rem;
+  font-size: 20px;
+}
+
+.botton-card-align {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fontawesome-padding {
+  padding-left: 10px;
+}
+
+.dashboard-main-font {
+  font-size: 30px;
+  font-weight: bold;
+  color: black;
+}
+
+.calendar-size {
+  width: 80%;
+  height: 40px;
+  width: 250px;
+  border-radius: 10px;
+  padding: 10px;
+  border: 1px solid black;
+  outline: 1px;
+}
+
+.card-margintop{
+  margin-top: 15px;
+  padding: 10px;
+  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+  text-align: center;
+  
+}
+
+.instructor-botton-cards{
+  display: flex;
+  justify-content: space-between;
+}
+
+.bottom-cards-align {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashboard-top-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dropdown-toggle::after{
+  content: none;
+}
